@@ -1,0 +1,34 @@
+# Source files (only publish dist)
+index.ts
+src/
+*.ts
+!*.d.ts
+
+# Development files
+tsconfig.json
+.gitignore
+.eslintrc.*
+.prettierrc.*
+jest.config.*
+*.test.*
+*.spec.*
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs and temp files
+*.log
+tmp/
+temp/
+
+# Coverage reports
+coverage/
+*.lcov
+
+# Build artifacts except dist
+*.tsbuildinfo
+node_modules/
+bun.lockb

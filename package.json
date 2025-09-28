@@ -10,8 +10,7 @@
     "api",
     "project-management",
     "package-manager",
-    "esm",
-    "cjs"
+    "esm"
   ],
   "author": {
     "name": "Ivan Oliver Fabra",
@@ -30,14 +29,14 @@
     "node": ">=18.0.0"
   },
   "type": "module",
-  "main": "./dist/cjs/index.js",
-  "module": "./dist/esm/index.js",
-  "types": "./dist/esm/index.d.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/esm/index.d.ts",
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.js"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     }
   },
   "files": [
@@ -47,11 +46,9 @@
   ],
   "scripts": {
     "clean": "rm -rf dist",
-    "build:esm": "tsc --project tsconfig.esm.json",
-    "build:cjs": "tsc --project tsconfig.cjs.json",
-    "build": "npm run clean && npm run build:esm && npm run build:cjs",
+    "build": "npm run clean && tsc",
     "prepublishOnly": "npm run build && npm test",
-    "dev": "npm run build:esm -- --watch",
+    "dev": "tsc --watch",
     "test": "bun test",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write ."

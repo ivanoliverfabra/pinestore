@@ -187,7 +187,7 @@ interface ApiRouteConfig<TResponseDTO, TArgs extends any[] = []> {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE';
   url: (...args: TArgs) => string;
   _schema?: TResponseDTO;
-  transform?: (dto: TResponseDTO) => any;
+  transform?: (dto: { success: boolean } & Record<string, TResponseDTO>) => any;
 }
 
 const defineApiRoute = <TResponseDTO, TArgs extends any[] = []>(
@@ -197,48 +197,48 @@ const defineApiRoute = <TResponseDTO, TArgs extends any[] = []>(
 export const ApiRoutes = {
   FetchProject: defineApiRoute<ProjectDTO, [number]>({
     method: 'GET',
-    url: (projectId) => `/api/projects/${projectId}`,
-    transform: (dto) => new Project(dto),
+    url: (projectId) => `/api/project/${projectId}`,
+    transform: (dto) => new Project(dto.project),
   }),
   FetchComments: defineApiRoute<CommentDTO[], [number]>({
     method: 'GET',
-    url: (projectId) => `/api/projects/${projectId}/comments`,
-    transform: (dtos) => dtos.map((dto) => new Comment(dto)),
+    url: (projectId) => `/api/project/${projectId}/comments`,
+    transform: (dtos) => dtos.comments.map((dto) => new Comment(dto)),
   }),
   FetchChangelog: defineApiRoute<ChangelogDTO, [number]>({
     method: 'GET',
-    url: (projectId) => `/api/projects/${projectId}/changelog`,
-    transform: (dto) => new Changelog(dto),
+    url: (projectId) => `/api/project/${projectId}/changelog`,
+    transform: (dto) => new Changelog(dto.changelog),
   }),
   FetchChangelogs: defineApiRoute<ChangelogDTO[], [number]>({
     method: 'GET',
-    url: (projectId) => `/api/projects/${projectId}/changelogs`,
-    transform: (dtos) => dtos.map((dto) => new Changelog(dto)),
+    url: (projectId) => `/api/project/${projectId}/changelogs`,
+    transform: (dtos) => dtos.changelogs.map((dto) => new Changelog(dto)),
   }),
   FetchProjects: defineApiRoute<ProjectDTO[]>({
     method: 'GET',
     url: () => `/api/projects`,
-    transform: (dtos) => dtos.map((dto) => new Project(dto)),
+    transform: (dtos) => dtos.projects.map((dto) => new Project(dto)),
   }),
   SearchProjects: defineApiRoute<ProjectDTO[], [string]>({
     method: 'GET',
     url: (query) => `/api/projects/search?q=${encodeURIComponent(query)}`,
-    transform: (dtos) => dtos.map((dto) => new Project(dto)),
+    transform: (dtos) => dtos.projects.map((dto) => new Project(dto)),
   }),
   FetchProjectByName: defineApiRoute<ProjectDTO, [string]>({
     method: 'GET',
     url: (name) => `/api/projects/named/?name=${encodeURIComponent(name)}`,
-    transform: (dto) => new Project(dto),
+    transform: (dto) => new Project(dto.project),
   }),
   FetchUser: defineApiRoute<UserDTO, [string]>({
     method: 'GET',
-    url: (id) => `/api/users/${id}`,
-    transform: (dto) => new User(dto),
+    url: (id) => `/api/user/${id}`,
+    transform: (dto) => new User(dto.user),
   }),
   FetchUserProjects: defineApiRoute<ProjectDTO[], [string]>({
     method: 'GET',
-    url: (userId) => `/api/users/${userId}/projects`,
-    transform: (dtos) => dtos.map((dto) => new Project(dto)),
+    url: (userId) => `/api/user/${userId}/projects`,
+    transform: (dtos) => dtos.projects.map((dto) => new Project(dto)),
   }),
 } as const;
 
@@ -249,6 +249,10 @@ export const ApiRoutes = {
 export class Pinestore {
   static ApiRoutes = ApiRoutes;
   static BaseUrl = 'https://pinestore.cc';
+
+  private constructor() {
+    // Prevent instantiation
+  }
 
   /**
    * Internal helper for making API requests, including DTO transformation.
@@ -282,7 +286,10 @@ export class Pinestore {
         `Pinestore API request to ${url} failed with status ${response.status}: ${errorBody}`,
       );
     }
-    const data: TResponseDTO = (await response.json()) as TResponseDTO;
+    const data: { success: boolean; } & Record<string, any> = await response.json();
+    if (!data.success) {
+      throw new Error(`Pinestore API request to ${url} was not successful.`);
+    }
 
     if (route.transform) {
       return route.transform(data) as TResult;
@@ -290,39 +297,41 @@ export class Pinestore {
     return data as unknown as TResult;
   }
 
-  static fetchProject(projectId: number): Promise<Project> {
+  static async fetchProject(projectId: number): Promise<Project> {
     return this.request(this.ApiRoutes.FetchProject, projectId);
   }
 
-  static fetchComments(projectId: number): Promise<Comment[]> {
-    return this.request(this.ApiRoutes.FetchComments, projectId);
+  static async fetchComments(projectId: number): Promise<Comment[]> {
+    return this.request<CommentDTO[], [number], Comment[]>(this.ApiRoutes.FetchComments, projectId).catch(() => []);
   }
 
-  static fetchChangelog(projectId: number): Promise<Changelog> {
+  static async fetchChangelog(projectId: number): Promise<Changelog> {
     return this.request(this.ApiRoutes.FetchChangelog, projectId);
   }
 
-  static fetchChangelogs(projectId: number): Promise<Changelog[]> {
-    return this.request(this.ApiRoutes.FetchChangelogs, projectId);
+  static async fetchChangelogs(projectId: number): Promise<Changelog[]> {
+    return this.request<ChangelogDTO[], [number], Changelog[]>(this.ApiRoutes.FetchChangelogs, projectId).catch(() => []);
   }
 
-  static fetchProjects(): Promise<Project[]> {
-    return this.request(this.ApiRoutes.FetchProjects);
+  static async fetchProjects(): Promise<Project[]> {
+    return this.request<ProjectDTO[], [], Project[]>(this.ApiRoutes.FetchProjects).catch(() => []);
   }
 
-  static searchProjects(query: string): Promise<Project[]> {
-    return this.request(this.ApiRoutes.SearchProjects, query);
+  static async searchProjects(query: string): Promise<Project[]> {
+    return this.request<ProjectDTO[], [string], Project[]>(this.ApiRoutes.SearchProjects, query).catch(() => []);
   }
 
-  static fetchProjectByName(name: string): Promise<Project> {
+  static async fetchProjectByName(name: string): Promise<Project> {
     return this.request(this.ApiRoutes.FetchProjectByName, name);
   }
 
-  static fetchUser(id: string): Promise<User> {
+  static async fetchUser(id: string): Promise<User> {
     return this.request(this.ApiRoutes.FetchUser, id);
   }
 
-  static fetchUserProjects(userId: string): Promise<Project[]> {
+  static async fetchUserProjects(userId: string): Promise<Project[]> {
     return this.request(this.ApiRoutes.FetchUserProjects, userId);
   }
 }
+
+export default Pinestore;
